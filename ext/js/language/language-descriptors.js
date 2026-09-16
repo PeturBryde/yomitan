@@ -323,6 +323,13 @@ const languageDescriptors = [
         },
     },
     {
+        iso: 'is',
+        iso639_3: 'isl',
+        name: 'Icelandic',
+        exampleText: 'lesa',
+        textPreprocessors: capitalizationPreprocessors,
+    },
+    {
         iso: 'it',
         iso639_3: 'ita',
         name: 'Italian',

@@ -175,6 +175,9 @@ type AllTextProcessors = {
     id: {
         pre: CapitalizationPreprocessors & AlphabeticDiacriticsProcessor;
     };
+    is: {
+        pre: CapitalizationPreprocessors;
+    };
     it: {
         pre: CapitalizationPreprocessors & AlphabeticDiacriticsProcessor & {
             removeApostrophedWords: TextProcessor;
