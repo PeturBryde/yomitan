@@ -44,7 +44,7 @@ const lexicalIds = new Map([
  * @param {string} dictionary
  * @param {number} id
  * @param {string[]} rules
- * @param {import('dictionary-data').TermGlossaryContent[]} definitions
+ * @param {import('dictionary-data').TermGlossary[]} definitions
  * @returns {import('dictionary-database').TermEntry}
  */
 function createEntry(index, term, dictionary, id, rules, definitions) {
