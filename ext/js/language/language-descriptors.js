@@ -40,6 +40,7 @@ import {frenchTransforms} from './fr/french-transforms.js';
 import {irishTransforms} from './ga/irish-transforms.js';
 import {convertLatinToGreek} from './grc/ancient-greek-processors.js';
 import {ancientGreekTransforms} from './grc/ancient-greek-transforms.js';
+import {icelandicTransforms} from './is/icelandic-transforms.js';
 import {removeApostrophedWords} from './it/italian-processors.js';
 import {
     alphabeticToHiragana,
@@ -328,6 +329,7 @@ const languageDescriptors = [
         name: 'Icelandic',
         exampleText: 'lesa',
         textPreprocessors: capitalizationPreprocessors,
+        languageTransforms: icelandicTransforms,
     },
     {
         iso: 'it',
