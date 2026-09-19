@@ -461,6 +461,16 @@
             "description": "Turn off Yomitan's internal parser for languages with spaces."
         }
     ],
+    "is": [
+        {
+            "modification": {
+                "action": "set",
+                "path": "translation.searchResolution",
+                "value": "word"
+            },
+            "description": "Lookup whole words in the dictionary."
+        }
+    ],
     "ja": [
         {
             "modification": {
