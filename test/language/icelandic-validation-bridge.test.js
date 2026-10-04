@@ -101,6 +101,36 @@ function createTranslator(validatorRules = defaultValidatorRules) {
                 ));
             }
 
+            if (term === 'verstu' && enabledDictionaryMap.has(residualDictionary)) {
+                entries.push(createEntry(
+                    index,
+                    term,
+                    residualDictionary,
+                    151,
+                    ['verb'],
+                    [['verja', ['BÍN: so MM-BH-ET']]],
+                ));
+            }
+
+            if (term === 'verja' && enabledDictionaryMap.has(lexicalDictionary)) {
+                entries.push(createEntry(
+                    index,
+                    term,
+                    lexicalDictionary,
+                    204,
+                    ['noun'],
+                    ['verja noun definition'],
+                ));
+                entries.push(createEntry(
+                    index,
+                    term,
+                    lexicalDictionary,
+                    205,
+                    ['verb'],
+                    ['verja verb definition'],
+                ));
+            }
+
             const lexicalId = lexicalIds.get(term);
             if (typeof lexicalId !== 'undefined' && enabledDictionaryMap.has(lexicalDictionary)) {
                 entries.push(createEntry(
@@ -237,6 +267,28 @@ describe('Icelandic production validator bridge', () => {
         expect(dictionaryEntries[0].headwords[0].term).toBe('húsvinur');
         expect(getDefinitionDictionaries(dictionaryEntries)).toStrictEqual([lexicalDictionary]);
         expect(getDefinitionDictionaries(dictionaryEntries)).not.toContain(validatorDictionary);
+    });
+
+
+    test('residual POS restricts downstream homographic lexical entries', async () => {
+        const translator = createTranslator();
+
+        const directEntries = await findTerms(translator, 'verja');
+        expect(directEntries).toHaveLength(2);
+        expect(
+            directEntries.map(({headwords: [{wordClasses}]}) => wordClasses),
+        ).toStrictEqual([['noun'], ['verb']]);
+
+        const inflectedEntries = await findTerms(translator, 'verstu');
+        expect(inflectedEntries).toHaveLength(1);
+        expect(inflectedEntries[0].headwords[0].term).toBe('verja');
+        expect(inflectedEntries[0].headwords[0].wordClasses).toStrictEqual(['verb']);
+        expect(inflectedEntries[0].definitions[0].entries).toStrictEqual([
+            'verja verb definition',
+        ]);
+        expect(getDefinitionDictionaries(inflectedEntries)).not.toContain(
+            residualDictionary,
+        );
     });
 
     test('an explicit residual route remains available alongside algorithmic morphology', async () => {
