@@ -59,6 +59,8 @@ export type DatabaseDeinflection = {
     transformedText: string;
     deinflectedText: string;
     conditions: number;
+    partOfSpeech: string | null;
+    filterPartOfSpeech: boolean;
     textProcessorRuleChainCandidates: TextProcessorRuleChainCandidate[];
     inflectionRuleChainCandidates: InflectionRuleChainCandidate[];
     databaseEntries: DictionaryDatabase.TermEntry[];

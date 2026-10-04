@@ -429,10 +429,22 @@ export class Translator {
         /** @type {import('translation-internal').DatabaseDeinflection[]} */
         const dictionaryDeinflections = [];
         for (const deinflection of deinflections) {
-            const {originalText, transformedText, textProcessorRuleChainCandidates, inflectionRuleChainCandidates: algorithmChains, databaseEntries} = deinflection;
+            const {
+                originalText,
+                transformedText,
+                textProcessorRuleChainCandidates,
+                inflectionRuleChainCandidates: algorithmChains,
+                partOfSpeech: algorithmPartOfSpeech,
+                databaseEntries,
+            } = deinflection;
             for (const entry of databaseEntries) {
-                const {dictionary, definitions} = entry;
+                const {dictionary, definitions, rules} = entry;
                 const entryDictionary = enabledDictionaryMap.get(dictionary);
+                const sourcePartsOfSpeech =
+                    this._multiLanguageTransformer.getLexicalPartsOfSpeech(
+                        language,
+                        rules,
+                    );
                 const useDeinflections = entryDictionary?.useDeinflections ?? true;
                 if (!useDeinflections) { continue; }
                 for (const definition of definitions) {
@@ -447,8 +459,27 @@ export class Translator {
                             };
                         });
 
-                        const dictionaryDeinflection = this._createDeinflection(originalText, transformedText, formOf, 0, textProcessorRuleChainCandidates, inflectionRuleChainCandidates);
-                        dictionaryDeinflections.push(dictionaryDeinflection);
+                        const targetPartsOfSpeech =
+                            algorithmPartOfSpeech !== null ?
+                                [algorithmPartOfSpeech] :
+                                (
+                                    sourcePartsOfSpeech.length > 0 ?
+                                        sourcePartsOfSpeech :
+                                        [null]
+                                );
+                        for (const partOfSpeech of targetPartsOfSpeech) {
+                            const dictionaryDeinflection = this._createDeinflection(
+                                originalText,
+                                transformedText,
+                                formOf,
+                                0,
+                                textProcessorRuleChainCandidates,
+                                inflectionRuleChainCandidates,
+                                partOfSpeech,
+                                partOfSpeech !== null,
+                            );
+                            dictionaryDeinflections.push(dictionaryDeinflection);
+                        }
                     }
                 }
             }
@@ -507,8 +538,31 @@ export class Translator {
             const {partsOfSpeechFilter} = entryDictionary;
 
             const definitionConditions = this._multiLanguageTransformer.getConditionFlagsFromPartsOfSpeech(language, databaseEntry.rules);
+            const definitionPartsOfSpeech =
+                this._multiLanguageTransformer.getLexicalPartsOfSpeech(
+                    language,
+                    databaseEntry.rules,
+                );
             for (const deinflection of uniqueDeinflectionArrays[databaseEntry.index]) {
-                if (!partsOfSpeechFilter || LanguageTransformer.conditionsMatch(deinflection.conditions, definitionConditions)) {
+                const {
+                    conditions,
+                    partOfSpeech,
+                    filterPartOfSpeech,
+                } = deinflection;
+                const conditionsMatch =
+                    LanguageTransformer.conditionsMatch(
+                        conditions,
+                        definitionConditions,
+                    );
+                const partOfSpeechMatches =
+                    !filterPartOfSpeech ||
+                    partOfSpeech === null ||
+                    definitionPartsOfSpeech.length === 0 ||
+                    definitionPartsOfSpeech.includes(partOfSpeech);
+                if (
+                    !partsOfSpeechFilter ||
+                    (conditionsMatch && partOfSpeechMatches)
+                ) {
                     deinflection.databaseEntries.push(databaseEntry);
                 }
             }
@@ -543,7 +597,7 @@ export class Translator {
 
             for (const [source, preprocessorRuleChainCandidates] of preprocessedTextVariants) {
                 for (const deinflection of this._multiLanguageTransformer.transform(language, source)) {
-                    const {trace, conditions} = deinflection;
+                    const {trace, conditions, partOfSpeech} = deinflection;
                     const postprocessedTextVariants = this._getTextVariants(deinflection.text, textPostprocessors, [null], sourceCache);
                     for (const [transformedText, postprocessorRuleChainCandidates] of postprocessedTextVariants) {
                         /** @type {import('translation-internal').InflectionRuleChainCandidate} */
@@ -558,7 +612,16 @@ export class Translator {
                                 (postprocessorRuleChainCandidate) => [...preprocessorRuleChainCandidate, ...postprocessorRuleChainCandidate],
                             ),
                         );
-                        deinflections.push(this._createDeinflection(rawSource, source, transformedText, conditions, textProcessorRuleChainCandidates, [inflectionRuleChainCandidate]));
+                        deinflections.push(this._createDeinflection(
+                            rawSource,
+                            source,
+                            transformedText,
+                            conditions,
+                            textProcessorRuleChainCandidates,
+                            [inflectionRuleChainCandidate],
+                            partOfSpeech,
+                            false,
+                        ));
                     }
                 }
             }
@@ -691,10 +754,31 @@ export class Translator {
      * @param {number} conditions
      * @param {import('translation-internal').TextProcessorRuleChainCandidate[]} textProcessorRuleChainCandidates
      * @param {import('translation-internal').InflectionRuleChainCandidate[]} inflectionRuleChainCandidates
+     * @param {?string} [partOfSpeech]
+     * @param {boolean} [filterPartOfSpeech]
      * @returns {import('translation-internal').DatabaseDeinflection}
      */
-    _createDeinflection(originalText, transformedText, deinflectedText, conditions, textProcessorRuleChainCandidates, inflectionRuleChainCandidates) {
-        return {originalText, transformedText, deinflectedText, conditions, textProcessorRuleChainCandidates, inflectionRuleChainCandidates, databaseEntries: []};
+    _createDeinflection(
+        originalText,
+        transformedText,
+        deinflectedText,
+        conditions,
+        textProcessorRuleChainCandidates,
+        inflectionRuleChainCandidates,
+        partOfSpeech = null,
+        filterPartOfSpeech = false,
+    ) {
+        return {
+            originalText,
+            transformedText,
+            deinflectedText,
+            conditions,
+            partOfSpeech,
+            filterPartOfSpeech,
+            textProcessorRuleChainCandidates,
+            inflectionRuleChainCandidates,
+            databaseEntries: [],
+        };
     }
 
     // Term dictionary entry grouping

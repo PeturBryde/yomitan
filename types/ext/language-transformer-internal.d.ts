@@ -21,6 +21,7 @@ export type Transform = {
     rules: Rule[];
     heuristic: RegExp;
     description?: string;
+    partOfSpeech: string | null;
 };
 
 export type Rule = {
@@ -35,6 +36,7 @@ export type TransformedText = {
     text: string;
     conditions: number;
     trace: Trace;
+    partOfSpeech: string | null;
 };
 
 export type Trace = TraceFrame[];

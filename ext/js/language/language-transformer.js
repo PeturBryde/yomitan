@@ -27,6 +27,8 @@ export class LanguageTransformer {
         this._conditionTypeToConditionFlagsMap = new Map();
         /** @type {Map<string, number>} */
         this._partOfSpeechToConditionFlagsMap = new Map();
+        /** @type {Set<string>} */
+        this._lexicalPartsOfSpeech = new Set();
     }
 
     /** */
@@ -35,6 +37,7 @@ export class LanguageTransformer {
         this._transforms = [];
         this._conditionTypeToConditionFlagsMap.clear();
         this._partOfSpeechToConditionFlagsMap.clear();
+        this._lexicalPartsOfSpeech.clear();
     }
 
     /**
@@ -42,15 +45,26 @@ export class LanguageTransformer {
      * @throws {Error}
      */
     addDescriptor(descriptor) {
-        const {conditions, transforms} = descriptor;
+        const {conditions, transforms, partsOfSpeech = []} = descriptor;
         const conditionEntries = Object.entries(conditions);
+        for (const partOfSpeech of partsOfSpeech) {
+            this._lexicalPartsOfSpeech.add(partOfSpeech);
+        }
         const {conditionFlagsMap, nextFlagIndex} = this._getConditionFlagsMap(conditionEntries, this._nextFlagIndex);
 
         /** @type {import('language-transformer-internal').Transform[]} */
         const transforms2 = [];
 
         for (const [transformId, transform] of Object.entries(transforms)) {
-            const {name, description, rules} = transform;
+            const {name, description, partOfSpeech = null, rules} = transform;
+            if (
+                partOfSpeech !== null &&
+                !this._lexicalPartsOfSpeech.has(partOfSpeech)
+            ) {
+                throw new Error(
+                    `Invalid partOfSpeech for transform ${transformId}: ${partOfSpeech}`
+                );
+            }
             /** @type {import('language-transformer-internal').Rule[]} */
             const rules2 = [];
             for (let j = 0, jj = rules.length; j < jj; ++j) {
@@ -69,7 +83,14 @@ export class LanguageTransformer {
             }
             const isInflectedTests = rules.map((rule) => rule.isInflected);
             const heuristic = new RegExp(isInflectedTests.map((regExp) => regExp.source).join('|'));
-            transforms2.push({id: transformId, name, description, rules: rules2, heuristic});
+            transforms2.push({
+                id: transformId,
+                name,
+                description,
+                partOfSpeech,
+                rules: rules2,
+                heuristic,
+            });
         }
 
         this._nextFlagIndex = nextFlagIndex;
@@ -96,6 +117,15 @@ export class LanguageTransformer {
     }
 
     /**
+     * Returns lexical part-of-speech rule identifiers recognized by the language.
+     * @param {string[]} rules
+     * @returns {string[]}
+     */
+    getLexicalPartsOfSpeech(rules) {
+        return rules.filter((rule) => this._lexicalPartsOfSpeech.has(rule));
+    }
+
+    /**
      * @param {string[]} conditionTypes
      * @returns {number}
      */
@@ -116,13 +146,13 @@ export class LanguageTransformer {
      * @returns {import('language-transformer-internal').TransformedText[]}
      */
     transform(sourceText) {
-        const results = [LanguageTransformer.createTransformedText(sourceText, 0, [])];
+        const results = [LanguageTransformer.createTransformedText(sourceText, 0, [], null)];
         for (let i = 0; i < results.length; ++i) {
-            const {text, conditions, trace} = results[i];
+            const {text, conditions, trace, partOfSpeech: currentPartOfSpeech} = results[i];
             for (const transform of this._transforms) {
                 if (!transform.heuristic.test(text)) { continue; }
 
-                const {id, rules} = transform;
+                const {id, rules, partOfSpeech} = transform;
                 for (let j = 0, jj = rules.length; j < jj; ++j) {
                     const rule = rules[j];
                     if (!LanguageTransformer.conditionsMatch(conditions, rule.conditionsIn)) { continue; }
@@ -139,6 +169,7 @@ export class LanguageTransformer {
                         deinflect(text),
                         rule.conditionsOut,
                         this._extendTrace(trace, {transform: id, ruleIndex: j, text}),
+                        partOfSpeech ?? currentPartOfSpeech,
                     ));
                 }
             }
@@ -163,10 +194,11 @@ export class LanguageTransformer {
      * @param {string} text
      * @param {number} conditions
      * @param {import('language-transformer-internal').Trace} trace
+     * @param {?string} [partOfSpeech]
      * @returns {import('language-transformer-internal').TransformedText}
      */
-    static createTransformedText(text, conditions, trace) {
-        return {text, conditions, trace};
+    static createTransformedText(text, conditions, trace, partOfSpeech = null) {
+        return {text, conditions, trace, partOfSpeech};
     }
 
     /**

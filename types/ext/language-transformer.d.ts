@@ -19,6 +19,7 @@ export type LanguageTransformDescriptor<TCondition extends string = string> = {
     language: string;
     conditions: ConditionMapObject<TCondition>;
     transforms: TransformMapObject<TCondition>;
+    partsOfSpeech?: string[];
 };
 
 export type ConditionMapObject<TCondition extends string> = {
@@ -48,6 +49,7 @@ export type RuleI18n = {
 export type Transform<TCondition> = {
     name: string;
     description?: string;
+    partOfSpeech?: string;
     i18n?: TransformI18n[];
     rules: Rule<TCondition>[];
 };

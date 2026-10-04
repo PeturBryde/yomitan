@@ -46,6 +46,18 @@ export class MultiLanguageTransformer {
 
     /**
      * @param {string} language
+     * @param {string[]} rules
+     * @returns {string[]}
+     */
+    getLexicalPartsOfSpeech(language, rules) {
+        const languageTransformer = this._languageTransformers.get(language);
+        return typeof languageTransformer !== 'undefined' ?
+            languageTransformer.getLexicalPartsOfSpeech(rules) :
+            [];
+    }
+
+    /**
+     * @param {string} language
      * @param {string[]} conditionTypes
      * @returns {number}
      */
