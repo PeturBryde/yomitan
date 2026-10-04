@@ -113,22 +113,24 @@ function createTranslator(validatorRules = defaultValidatorRules) {
             }
 
             if (term === 'verja' && enabledDictionaryMap.has(lexicalDictionary)) {
-                entries.push(createEntry(
-                    index,
-                    term,
-                    lexicalDictionary,
-                    204,
-                    ['noun'],
-                    ['verja noun definition'],
-                ));
-                entries.push(createEntry(
-                    index,
-                    term,
-                    lexicalDictionary,
-                    205,
-                    ['verb'],
-                    ['verja verb definition'],
-                ));
+                entries.push(
+                    createEntry(
+                        index,
+                        term,
+                        lexicalDictionary,
+                        204,
+                        ['noun'],
+                        ['verja noun definition'],
+                    ),
+                    createEntry(
+                        index,
+                        term,
+                        lexicalDictionary,
+                        205,
+                        ['verb'],
+                        ['verja verb definition'],
+                    ),
+                );
             }
 
             const lexicalId = lexicalIds.get(term);
