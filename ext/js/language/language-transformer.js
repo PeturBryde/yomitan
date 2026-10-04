@@ -62,7 +62,7 @@ export class LanguageTransformer {
                 !this._lexicalPartsOfSpeech.has(partOfSpeech)
             ) {
                 throw new Error(
-                    `Invalid partOfSpeech for transform ${transformId}: ${partOfSpeech}`
+                    `Invalid partOfSpeech for transform ${transformId}: ${partOfSpeech}`,
                 );
             }
             /** @type {import('language-transformer-internal').Rule[]} */
