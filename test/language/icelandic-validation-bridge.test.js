@@ -18,21 +18,22 @@
 import {describe, expect, test} from 'vitest';
 import {Translator} from '../../ext/js/language/translator.js';
 
-const validatorDictionary = 'M8 weak noun validator';
-const residualDictionary = 'M8 experimental residual';
-const lexicalDictionary = 'M8 ruleless lexical';
+const validatorDictionary = 'Icelandic BÍN validator fixture';
+const residualDictionary = 'Icelandic residual fixture';
+const lexicalDictionary = 'Icelandic lexical fixture';
 
-/** @type {Map<string, {id: number}>} */
-const validators = new Map([
-    ['kona', {id: 100}],
-    ['dómari', {id: 101}],
+/** @type {Map<string, string[]>} */
+const defaultValidatorRules = new Map([
+    ['húsvinur', ['m13-provisional-k32-leaf-17']],
+    ['þjáningafullur', ['m13-provisional-k32-leaf-01']],
+    ['þaulskoða', ['m13-provisional-k32-leaf-01']],
 ]);
 
 /** @type {Map<string, number>} */
 const lexicalIds = new Map([
-    ['kona', 200],
-    ['dómari', 201],
-    ['prufa', 202],
+    ['húsvinur', 200],
+    ['þjáningafullur', 201],
+    ['þaulskoða', 202],
     ['bók', 203],
 ]);
 
@@ -64,9 +65,10 @@ function createEntry(index, term, dictionary, id, rules, definitions) {
 }
 
 /**
+ * @param {Map<string, string[]>} validatorRules
  * @returns {Translator}
  */
-function createTranslator() {
+function createTranslator(validatorRules = defaultValidatorRules) {
     /**
      * @param {string[]} termList
      * @param {Map<string, import('translation').FindTermDictionary>} enabledDictionaryMap
@@ -76,14 +78,14 @@ function createTranslator() {
         /** @type {import('dictionary-database').TermEntry[]} */
         const entries = [];
         for (const [index, term] of termList.entries()) {
-            const validator = validators.get(term);
-            if (validator && enabledDictionaryMap.has(validatorDictionary)) {
+            const rules = validatorRules.get(term);
+            if (typeof rules !== 'undefined' && enabledDictionaryMap.has(validatorDictionary)) {
                 entries.push(createEntry(
                     index,
                     term,
                     validatorDictionary,
-                    validator.id,
-                    ['n-weak-def-sg-oblique'],
+                    100 + index,
+                    rules,
                     [[term, []]],
                 ));
             }
@@ -157,7 +159,6 @@ function createEnabledDictionaryMap() {
  * @returns {Promise<import('dictionary').TermDictionaryEntry[]>}
  */
 async function findTerms(translator, text) {
-    const enabledDictionaryMap = createEnabledDictionaryMap();
     const {dictionaryEntries} = await translator.findTerms('simple', text, {
         matchType: 'exact',
         deinflect: true,
@@ -167,7 +168,7 @@ async function findTerms(translator, text) {
         removeNonJapaneseCharacters: false,
         primaryReading: '',
         textReplacements: [null],
-        enabledDictionaryMap,
+        enabledDictionaryMap: createEnabledDictionaryMap(),
         excludeDictionaryDefinitions: null,
         searchResolution: 'word',
         language: 'is',
@@ -186,37 +187,59 @@ function getDefinitionDictionaries(dictionaryEntries) {
     );
 }
 
-describe('Icelandic M8 hybrid validator bridge', () => {
+/**
+ * @param {import('dictionary').TermDictionaryEntry} dictionaryEntry
+ * @returns {{source: string, inflectionRules: string[]}[]}
+ */
+function getInflectionRuleChains(dictionaryEntry) {
+    return dictionaryEntry.inflectionRuleChainCandidates.map(
+        ({source, inflectionRules}) => ({
+            source,
+            inflectionRules: inflectionRules.map(({name}) => name),
+        }),
+    );
+}
+
+describe('Icelandic production validator bridge', () => {
     test.each([
-        ['konuna', 'kona'],
-        ['konunni', 'kona'],
-        ['konunnar', 'kona'],
-        ['dómarann', 'dómari'],
-        ['dómarans', 'dómari'],
-        ['dómaranum', 'dómari'],
-    ])('%s reaches %s through the hidden validator', async (surface, lemma) => {
+        ['húsvini', 'húsvinur', 'noun: masculine, indefinite, dative singular'],
+        ['þjáningafyllstu', 'þjáningafullur', 'adjective: superlative, weak, feminine, genitive, singular'],
+        ['þaulskoðuðuð', 'þaulskoða', 'verb: active, indicative, past, second person, plural'],
+    ])('%s reaches %s through the hidden BÍN validator', async (surface, lemma, ruleName) => {
         const dictionaryEntries = await findTerms(createTranslator(), surface);
 
         expect(dictionaryEntries).toHaveLength(1);
         expect(dictionaryEntries[0].headwords[0].term).toBe(lemma);
         expect(getDefinitionDictionaries(dictionaryEntries)).toStrictEqual([lexicalDictionary]);
         expect(getDefinitionDictionaries(dictionaryEntries)).not.toContain(validatorDictionary);
+        expect(getInflectionRuleChains(dictionaryEntries[0])).toContainEqual({
+            source: 'algorithm',
+            inflectionRules: [ruleName],
+        });
     });
 
-    test('suffix match without validator support cannot reach a ruleless lexical entry', async () => {
-        const dictionaryEntries = await findTerms(createTranslator(), 'prufuna');
+    test('an incompatible validator cannot expose a ruleless lexical entry', async () => {
+        const incompatibleValidatorRules = new Map([
+            ['húsvinur', []],
+        ]);
+        const dictionaryEntries = await findTerms(
+            createTranslator(incompatibleValidatorRules),
+            'húsvini',
+        );
+
         expect(dictionaryEntries).toHaveLength(0);
     });
 
     test('direct lemma lookup remains available and hides validator definitions', async () => {
-        const dictionaryEntries = await findTerms(createTranslator(), 'kona');
+        const dictionaryEntries = await findTerms(createTranslator(), 'húsvinur');
 
         expect(dictionaryEntries).toHaveLength(1);
-        expect(dictionaryEntries[0].headwords[0].term).toBe('kona');
+        expect(dictionaryEntries[0].headwords[0].term).toBe('húsvinur');
         expect(getDefinitionDictionaries(dictionaryEntries)).toStrictEqual([lexicalDictionary]);
+        expect(getDefinitionDictionaries(dictionaryEntries)).not.toContain(validatorDictionary);
     });
 
-    test('an explicit residual route coexists with the algorithmic family', async () => {
+    test('an explicit residual route remains available alongside algorithmic morphology', async () => {
         const dictionaryEntries = await findTerms(createTranslator(), 'bókinni');
 
         expect(dictionaryEntries).toHaveLength(1);
