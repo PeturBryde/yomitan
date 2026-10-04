@@ -213,7 +213,7 @@ describe('Icelandic production validator bridge', () => {
         expect(getDefinitionDictionaries(dictionaryEntries)).toStrictEqual([lexicalDictionary]);
         expect(getDefinitionDictionaries(dictionaryEntries)).not.toContain(validatorDictionary);
         expect(getInflectionRuleChains(dictionaryEntries[0])).toContainEqual({
-            source: 'algorithm',
+            source: 'both',
             inflectionRules: [ruleName],
         });
     });
