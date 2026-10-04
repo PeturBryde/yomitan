@@ -28,6 +28,43 @@ import {Translator} from '../../ext/js/language/translator.js';
 globalThis.indexedDB = indexedDB;
 globalThis.IDBKeyRange = IDBKeyRange;
 
+/*
+ * DictionaryDatabase.prepare() distinguishes the main browser context from a
+ * worker by inspecting self.constructor.name. The standalone Node CLI needs to
+ * take the main-context path so that the IndexedDB schema is created.
+ */
+Object.defineProperty(globalThis, 'self', {
+    configurable: true,
+    value: {constructor: {name: 'Window'}},
+});
+
+/*
+ * The main-context branch also creates a media worker. Dictionary lookup does
+ * not use its media APIs, so a deliberately minimal stub is sufficient here.
+ * postMessage throws so an unexpected attempt to use the worker fails loudly.
+ */
+class WorkerStub {
+    /** @returns {undefined} */
+    addEventListener() {
+        return undefined;
+    }
+
+    /** @returns {undefined} */
+    terminate() {
+        return undefined;
+    }
+
+    /** @throws {Error} This CLI does not support media-worker operations. */
+    postMessage() {
+        throw new Error('Dictionary lookup CLI does not support worker messages.');
+    }
+}
+
+Object.defineProperty(globalThis, 'Worker', {
+    configurable: true,
+    value: WorkerStub,
+});
+
 /**
  * Minimal media loader for dictionary imports used by this CLI.
  */
