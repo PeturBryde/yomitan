@@ -329,7 +329,21 @@ const languageDescriptors = [
         name: 'Icelandic',
         exampleText: 'lesa',
         textPreprocessors: capitalizationPreprocessors,
-        languageTransforms: icelandicTransforms,
+        languageTransforms: {
+            ...icelandicTransforms,
+            partsOfSpeech: [
+                'adjective',
+                'adverb',
+                'conjunction',
+                'determiner',
+                'interjection',
+                'noun',
+                'numeral',
+                'preposition',
+                'pronoun',
+                'verb',
+            ],
+        },
     },
     {
         iso: 'it',
