@@ -24,6 +24,7 @@ import {createDictionaryArchiveData} from '../dictionary-archive-util.js';
 import {DictionaryDatabase} from '../../ext/js/dictionary/dictionary-database.js';
 import {DictionaryImporter} from '../../ext/js/dictionary/dictionary-importer.js';
 import {Translator} from '../../ext/js/language/translator.js';
+
 globalThis.indexedDB = indexedDB;
 globalThis.IDBKeyRange = IDBKeyRange;
 
