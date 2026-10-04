@@ -44,14 +44,14 @@ Object.defineProperty(globalThis, 'self', {
  * postMessage throws so an unexpected attempt to use the worker fails loudly.
  */
 class WorkerStub {
-    /** @returns {undefined} */
+    /** */
     addEventListener() {
-        return undefined;
+        // Intentionally empty.
     }
 
-    /** @returns {undefined} */
+    /** */
     terminate() {
-        return undefined;
+        // Intentionally empty.
     }
 
     /** @throws {Error} This CLI does not support media-worker operations. */
