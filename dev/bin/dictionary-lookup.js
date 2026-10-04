@@ -24,17 +24,26 @@ import {createDictionaryArchiveData} from '../dictionary-archive-util.js';
 import {DictionaryDatabase} from '../../ext/js/dictionary/dictionary-database.js';
 import {DictionaryImporter} from '../../ext/js/dictionary/dictionary-importer.js';
 import {Translator} from '../../ext/js/language/translator.js';
-import {chrome, fetch} from '../../test/mocks/common.js';
-import {DictionaryImporterMediaLoader} from '../../test/mocks/dictionary-importer-media-loader.js';
-
 globalThis.indexedDB = indexedDB;
 globalThis.IDBKeyRange = IDBKeyRange;
-globalThis.fetch = fetch;
-globalThis.chrome = chrome;
+
+/**
+ * Minimal media loader for dictionary imports used by this CLI.
+ */
+class DictionaryImporterMediaLoader {
+    /**
+     * @param {ArrayBuffer} content
+     * @returns {Promise<{content: ArrayBuffer, width: number, height: number}>}
+     */
+    async getImageDetails(content) {
+        return {content, width: 100, height: 100};
+    }
+}
 
 /**
  * @param {string[]} args
  * @returns {{language: string, dictionaries: string[], queries: string[]}}
+ * @throws {Error} If an argument is unknown or a required argument is absent.
  */
 function parseArgs(args) {
     let language = 'is';
@@ -71,6 +80,7 @@ function parseArgs(args) {
  * @param {number} index
  * @param {string} option
  * @returns {string}
+ * @throws {Error} If the option has no value.
  */
 function requireValue(args, index, option) {
     const value = args[index];
@@ -84,7 +94,6 @@ function requireValue(args, index, option) {
  * Repackages one normal dictionary ZIP as an uncompressed in-memory archive.
  * Yomitan's Node test ZIP implementation cannot inflate normal compressed
  * dictionary ZIPs, but DictionaryImporter can otherwise process the same files.
- *
  * @param {string} dictionaryPath
  * @returns {Promise<ArrayBuffer>}
  */
