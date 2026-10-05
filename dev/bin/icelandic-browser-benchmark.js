@@ -28,6 +28,7 @@ import {
     writeFileSync,
 } from 'fs';
 import JSZip from 'jszip';
+import {homedir} from 'os';
 import {fileURLToPath} from 'node:url';
 import path from 'path';
 import {chromium} from '@playwright/test';
@@ -1686,7 +1687,7 @@ async function main() {
             options,
             '--workspace',
             path.join(
-                root,
+                homedir(),
                 '.cache',
                 'yomitan-isl-browser-benchmark',
             ),
