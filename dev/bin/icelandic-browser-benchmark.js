@@ -394,6 +394,7 @@ function getIcelandicTransformBytes(extensionDirectory) {
 async function launchContext(profile, extensionDirectory) {
     mkdirSync(profile, {recursive: true});
     return await chromium.launchPersistentContext(profile, {
+        channel: 'chromium',
         args: [
             '--headless=new',
             '--disable-extensions-except=' + extensionDirectory,
