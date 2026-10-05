@@ -31,6 +31,7 @@ import JSZip from 'jszip';
 import {fileURLToPath} from 'node:url';
 import path from 'path';
 import {chromium} from '@playwright/test';
+import {parseJson} from '../json.js';
 import {ManifestUtil} from '../manifest-util.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -200,7 +201,7 @@ function getDirectorySize(directory) {
  * @returns {unknown}
  */
 function readJson(filePath) {
-    return JSON.parse(readFileSync(filePath, {encoding: 'utf8'}));
+    return parseJson(readFileSync(filePath, {encoding: 'utf8'}));
 }
 
 /**
@@ -441,10 +442,10 @@ async function sendApiMessage(page, action, params) {
     return await page.evaluate(
         async ({action: action2, params: params2}) => {
             const response = await new Promise((resolve, reject) => {
-                chrome.runtime.sendMessage(
+                globalThis.chrome.runtime.sendMessage(
                     {action: action2, params: params2},
                     (value) => {
-                        const error = chrome.runtime.lastError;
+                        const error = globalThis.chrome.runtime.lastError;
                         if (typeof error !== 'undefined') {
                             reject(new Error(error.message));
                         } else {
@@ -495,7 +496,9 @@ async function getDictionaryInfo(page) {
  * @returns {Promise<{usage?: number, quota?: number}>}
  */
 async function getStorageEstimate(page) {
-    return await page.evaluate(async () => await navigator.storage.estimate());
+    return await page.evaluate(
+        async () => await globalThis.navigator.storage.estimate(),
+    );
 }
 
 /**
@@ -519,7 +522,7 @@ async function describeDictionary(dictionaryPath) {
     if (indexFile === null) {
         throw new Error('Dictionary has no index.json: ' + resolved);
     }
-    const index = JSON.parse(await indexFile.async('text'));
+    const index = parseJson(await indexFile.async('text'));
     if (
         typeof index !== 'object' ||
         index === null ||
@@ -650,7 +653,7 @@ async function importDictionary(page, dictionary, timeoutMilliseconds) {
         'Importing ' + path.basename(dictionary.path) +
         ' as ' + JSON.stringify(dictionary.title) + '...',
     );
-    const started = performance.now();
+    const started = process.hrtime.bigint();
     await page.locator('#dictionary-import-file-input').setInputFiles(
         dictionary.path,
     );
@@ -659,7 +662,7 @@ async function importDictionary(page, dictionary, timeoutMilliseconds) {
         dictionary.title,
         timeoutMilliseconds,
     );
-    const seconds = (performance.now() - started) / 1000;
+    const seconds = Number(process.hrtime.bigint() - started) / 1e9;
     console.log('  finished in ' + seconds.toFixed(3) + ' s');
     return {summary, seconds};
 }
@@ -1220,9 +1223,9 @@ async function prepareMode(
 async function termsFind(page, query) {
     return await page.evaluate(
         async ({query: query2}) => {
-            const started = performance.now();
+            const started = globalThis.performance.now();
             const response = await new Promise((resolve, reject) => {
-                chrome.runtime.sendMessage(
+                globalThis.chrome.runtime.sendMessage(
                     {
                         action: 'termsFind',
                         params: {
@@ -1232,7 +1235,7 @@ async function termsFind(page, query) {
                         },
                     },
                     (value) => {
-                        const error = chrome.runtime.lastError;
+                        const error = globalThis.chrome.runtime.lastError;
                         if (typeof error !== 'undefined') {
                             reject(new Error(error.message));
                         } else {
@@ -1241,7 +1244,7 @@ async function termsFind(page, query) {
                     },
                 );
             });
-            const milliseconds = performance.now() - started;
+            const milliseconds = globalThis.performance.now() - started;
 
             if (
                 typeof response !== 'object' ||
