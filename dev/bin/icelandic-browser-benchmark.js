@@ -527,7 +527,9 @@ async function describeDictionary(dictionaryPath) {
     if (
         typeof index !== 'object' ||
         index === null ||
+        !('title' in index) ||
         typeof index.title !== 'string' ||
+        !('revision' in index) ||
         typeof index.revision !== 'string'
     ) {
         throw new Error('Dictionary index lacks title/revision: ' + resolved);
