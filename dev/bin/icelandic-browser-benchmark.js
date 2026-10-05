@@ -44,25 +44,25 @@ const importPollMilliseconds = 2000;
 const importProgressMilliseconds = 10000;
 
 const icelandicImportLine =
-    "import {icelandicTransforms} from './is/icelandic-transforms.js';\n";
+    'import {icelandicTransforms} from \'./is/icelandic-transforms.js\';\n';
 const icelandicDescriptorWithTransforms = [
-    "    {",
-    "        iso: 'is',",
-    "        iso639_3: 'isl',",
-    "        name: 'Icelandic',",
-    "        exampleText: 'lesa',",
-    "        textPreprocessors: capitalizationPreprocessors,",
-    "        languageTransforms: icelandicTransforms,",
-    "    },",
+    '    {',
+    '        iso: \'is\',',
+    '        iso639_3: \'isl\',',
+    '        name: \'Icelandic\',',
+    '        exampleText: \'lesa\',',
+    '        textPreprocessors: capitalizationPreprocessors,',
+    '        languageTransforms: icelandicTransforms,',
+    '    },',
 ].join('\n');
 const icelandicDescriptorWithoutTransforms = [
-    "    {",
-    "        iso: 'is',",
-    "        iso639_3: 'isl',",
-    "        name: 'Icelandic',",
-    "        exampleText: 'lesa',",
-    "        textPreprocessors: capitalizationPreprocessors,",
-    "    },",
+    '    {',
+    '        iso: \'is\',',
+    '        iso639_3: \'isl\',',
+    '        name: \'Icelandic\',',
+    '        exampleText: \'lesa\',',
+    '        textPreprocessors: capitalizationPreprocessors,',
+    '    },',
 ].join('\n');
 
 /**
@@ -72,6 +72,7 @@ const icelandicDescriptorWithoutTransforms = [
 /**
  * @param {string[]} args
  * @returns {{command: string, options: Map<string, string[]>, flags: Set<string>}}
+ * @throws {Error} If the command line is invalid.
  */
 function parseArgs(args) {
     const command = args.shift();
@@ -114,6 +115,7 @@ function parseArgs(args) {
  * @param {string} name
  * @param {?string} [defaultValue]
  * @returns {string}
+ * @throws {Error} If the option is missing or repeated.
  */
 function getOption(options, name, defaultValue = null) {
     const values = options.get(name);
@@ -141,6 +143,7 @@ function getOptions(options, name) {
 /**
  * @param {string} value
  * @returns {BenchmarkMode}
+ * @throws {Error} If the mode is unsupported.
  */
 function getMode(value) {
     if (value !== 'hybrid' && value !== 'explicit') {
@@ -154,6 +157,7 @@ function getMode(value) {
  * @param {string} name
  * @param {number} minimum
  * @returns {number}
+ * @throws {Error} If the value is not an integer in range.
  */
 function getInteger(value, name, minimum) {
     const result = Number.parseInt(value, 10);
@@ -264,6 +268,7 @@ function removeChromiumSingletonFiles(profile) {
 /**
  * @param {string} sourceProfile
  * @param {string} targetProfile
+ * @throws {Error} If the source profile does not exist.
  */
 function cloneProfile(sourceProfile, targetProfile) {
     if (!existsSync(sourceProfile)) {
@@ -278,7 +283,6 @@ function cloneProfile(sourceProfile, targetProfile) {
  * Keep one stable unpacked-extension path so Chromium assigns the same extension
  * ID to the base, hybrid, and explicit profiles. The full extension tree is
  * copied only when the checked-out source commit changes.
- *
  * @param {string} extensionDirectory
  * @param {string} markerPath
  */
@@ -303,6 +307,7 @@ function ensureExtensionCopy(extensionDirectory, markerPath) {
 /**
  * @param {string} extensionDirectory
  * @param {BenchmarkMode} mode
+ * @throws {Error} If the source extension does not have the expected layout.
  */
 function setExtensionMode(extensionDirectory, mode) {
     const sourceDescriptors = path.join(
@@ -442,10 +447,10 @@ async function openSettings(context) {
 async function sendApiMessage(page, action, params) {
     return await page.evaluate(
         async ({action: action2, params: params2}) => {
-            const response = await new Promise((resolve, reject) => {
+            const response = await /** @type {Promise<unknown>} */ (new Promise((resolve, reject) => {
                 globalThis.chrome.runtime.sendMessage(
                     {action: action2, params: params2},
-                    (value) => {
+                    (/** @type {unknown} */ value) => {
                         const error = globalThis.chrome.runtime.lastError;
                         if (typeof error !== 'undefined') {
                             reject(new Error(error.message));
@@ -454,7 +459,7 @@ async function sendApiMessage(page, action, params) {
                         }
                     },
                 );
-            });
+            }));
 
             if (
                 typeof response !== 'object' ||
@@ -558,6 +563,7 @@ function jsonEqual(actual, expected) {
  * @param {string} kind
  * @param {unknown} lexical
  * @param {unknown} morphology
+ * @throws {Error} If the stored benchmark identity does not match.
  */
 function verifyStateIdentity(state, kind, lexical, morphology) {
     if (typeof state !== 'object' || state === null) {
@@ -610,15 +616,17 @@ async function waitForSuccessfulImport(page, title, timeoutMilliseconds) {
             const progressInfo = (
                 await page.locator(
                     '.dictionary-import-progress .progress-info',
-                ).first().textContent().catch(() => null)
+                ).first().textContent()
+                    .catch(() => null)
             )?.trim();
             const progressStatus = (
                 await page.locator(
                     '.dictionary-import-progress .progress-status',
-                ).first().textContent().catch(() => null)
+                ).first().textContent()
+                    .catch(() => null)
             )?.trim();
             const progress = [progressInfo, progressStatus]
-                .filter((value) => value)
+                .filter(Boolean)
                 .join(' ');
             console.log(
                 '  still importing ' + JSON.stringify(title) +
@@ -697,7 +705,7 @@ async function configureProfile(page, expectedTitles, mainDictionary) {
         );
     }
 
-    /** @type {import('settings-modifications').ScopedModification[]} */
+    /** @type {import('../../types/ext/settings-modifications').ScopedModification[]} */
     const targets = [
         {
             action: 'set',
@@ -952,6 +960,7 @@ async function prepareBase(
         await verifyInstalledDictionaries(page, [lexical.title]);
         await configureProfile(page, [lexical.title], lexical.title);
 
+        const storage = await getStorageEstimate(page);
         state = {
             stateVersion,
             kind: 'base',
@@ -962,7 +971,7 @@ async function prepareBase(
             extensionId,
             dictionarySummary: summary,
             importSeconds,
-            storage: await getStorageEstimate(page),
+            storage,
             updatedAt: new Date().toISOString(),
         };
         writeJson(paths.baseState, state);
@@ -970,7 +979,7 @@ async function prepareBase(
         console.log('Persistent base profile is ready.');
         console.log('  lexical SHA-256: ' + lexical.sha256);
         console.log('  extension ID: ' + extensionId);
-        console.log('  storage: ' + JSON.stringify(state.storage));
+        console.log('  storage: ' + JSON.stringify(storage));
     } finally {
         await context.close();
     }
@@ -1179,6 +1188,9 @@ async function prepareMode(
             null
         );
 
+        const transformModuleBytes = getIcelandicTransformBytes(
+            paths.extension,
+        );
         state = {
             stateVersion,
             kind: mode,
@@ -1192,14 +1204,16 @@ async function prepareMode(
             storage,
             baseStorage: baseState.storage,
             morphologyUsageDelta,
-            transformModuleBytes: getIcelandicTransformBytes(paths.extension),
+            transformModuleBytes,
             updatedAt: new Date().toISOString(),
         };
         writeJson(modePaths.state, state);
 
         console.log('Persistent ' + mode + ' profile is ready.');
         console.log('  morphology SHA-256: ' + morphology.sha256);
-        console.log('  morphology import seconds: ' + importSeconds);
+        console.log(
+            '  morphology import seconds: ' + String(importSeconds),
+        );
         console.log('  storage: ' + JSON.stringify(storage));
         console.log(
             '  storage delta from lexical-only base: ' +
@@ -1207,7 +1221,7 @@ async function prepareMode(
         );
         console.log(
             '  Icelandic transform module bytes: ' +
-            state.transformModuleBytes,
+            transformModuleBytes,
         );
     } finally {
         await context.close();
@@ -1227,7 +1241,7 @@ async function termsFind(page, query) {
     return await page.evaluate(
         async ({query: query2}) => {
             const started = globalThis.performance.now();
-            const response = await new Promise((resolve, reject) => {
+            const response = await /** @type {Promise<unknown>} */ (new Promise((resolve, reject) => {
                 globalThis.chrome.runtime.sendMessage(
                     {
                         action: 'termsFind',
@@ -1237,7 +1251,7 @@ async function termsFind(page, query) {
                             optionsContext: {current: true},
                         },
                     },
-                    (value) => {
+                    (/** @type {unknown} */ value) => {
                         const error = globalThis.chrome.runtime.lastError;
                         if (typeof error !== 'undefined') {
                             reject(new Error(error.message));
@@ -1246,7 +1260,7 @@ async function termsFind(page, query) {
                         }
                     },
                 );
-            });
+            }));
             const milliseconds = globalThis.performance.now() - started;
 
             if (
@@ -1261,42 +1275,99 @@ async function termsFind(page, query) {
             }
 
             const result = response.result;
-            const entries = (
+            const rawEntries = (
                 typeof result === 'object' &&
                 result !== null &&
                 'dictionaryEntries' in result &&
                 Array.isArray(result.dictionaryEntries) ?
-                result.dictionaryEntries :
+                /** @type {unknown[]} */ (result.dictionaryEntries) :
                 []
             );
+
+            const entries = rawEntries.map((entry) => {
+                const entryObject = (
+                    typeof entry === 'object' && entry !== null ?
+                    /** @type {Record<string, unknown>} */ (entry) :
+                    {}
+                );
+                const rawHeadwords = (
+                    Array.isArray(entryObject.headwords) ?
+                    /** @type {unknown[]} */ (entryObject.headwords) :
+                    []
+                );
+                const headwords = rawHeadwords.map((headword) => {
+                    const headwordObject = (
+                        typeof headword === 'object' && headword !== null ?
+                        /** @type {Record<string, unknown>} */ (headword) :
+                        {}
+                    );
+                    const rawWordClasses = (
+                        Array.isArray(headwordObject.wordClasses) ?
+                        /** @type {unknown[]} */ (headwordObject.wordClasses) :
+                        []
+                    );
+                    return {
+                        term: (
+                            typeof headwordObject.term === 'string' ?
+                            headwordObject.term :
+                            ''
+                        ),
+                        wordClasses: rawWordClasses.filter(
+                            (value) => typeof value === 'string',
+                        ),
+                    };
+                });
+
+                const rawCandidates = (
+                    Array.isArray(entryObject.inflectionRuleChainCandidates) ?
+                    /** @type {unknown[]} */ (
+                        entryObject.inflectionRuleChainCandidates
+                    ) :
+                    []
+                );
+                const inflections = rawCandidates.map((candidate) => {
+                    const candidateObject = (
+                        typeof candidate === 'object' && candidate !== null ?
+                        /** @type {Record<string, unknown>} */ (candidate) :
+                        {}
+                    );
+                    const rawRules = (
+                        Array.isArray(candidateObject.inflectionRules) ?
+                        /** @type {unknown[]} */ (
+                            candidateObject.inflectionRules
+                        ) :
+                        []
+                    );
+                    const names = rawRules.map((rule) => {
+                        const ruleObject = (
+                            typeof rule === 'object' && rule !== null ?
+                            /** @type {Record<string, unknown>} */ (rule) :
+                            {}
+                        );
+                        return (
+                            typeof ruleObject.name === 'string' ?
+                            ruleObject.name :
+                            ''
+                        );
+                    }).filter(Boolean);
+
+                    return {
+                        source: (
+                            typeof candidateObject.source === 'string' ?
+                            candidateObject.source :
+                            ''
+                        ),
+                        names,
+                    };
+                });
+
+                return {headwords, inflections};
+            });
 
             return {
                 milliseconds,
                 count: entries.length,
-                entries: entries.map((entry) => ({
-                    headwords: (
-                        Array.isArray(entry.headwords) ?
-                        entry.headwords.map((headword) => ({
-                            term: headword.term,
-                            wordClasses: headword.wordClasses,
-                        })) :
-                        []
-                    ),
-                    inflections: (
-                        Array.isArray(entry.inflectionRuleChainCandidates) ?
-                        entry.inflectionRuleChainCandidates.map((candidate) => ({
-                            source: candidate.source,
-                            names: (
-                                Array.isArray(candidate.inflectionRules) ?
-                                candidate.inflectionRules.map(
-                                    (rule) => rule.name,
-                                ) :
-                                []
-                            ),
-                        })) :
-                        []
-                    ),
-                })),
+                entries,
             };
         },
         {query},
@@ -1333,7 +1404,7 @@ function percentile(values, fraction) {
 function summarize(values) {
     return {
         count: values.length,
-        p50: percentile(values, 0.50),
+        p50: percentile(values, 0.5),
         p95: percentile(values, 0.95),
         p99: percentile(values, 0.99),
         max: values.length > 0 ? Math.max(...values) : Number.NaN,
@@ -1543,7 +1614,6 @@ async function runBenchmark(
  * 2. cloning a closed persistent profile preserves IndexedDB;
  * 3. switching the stable unpacked extension path from hybrid to explicit
  *    keeps the same extension ID and preserves the cloned dictionary.
- *
  * @param {string} workspace
  */
 async function smoke(workspace) {
