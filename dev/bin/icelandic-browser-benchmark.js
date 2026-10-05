@@ -386,7 +386,6 @@ function getIcelandicTransformBytes(extensionDirectory) {
  */
 async function launchContext(profile, extensionDirectory) {
     mkdirSync(profile, {recursive: true});
-    removeChromiumSingletonFiles(profile);
     return await chromium.launchPersistentContext(profile, {
         args: [
             '--headless=new',
@@ -457,8 +456,7 @@ async function sendApiMessage(page, action, params) {
 
             if (
                 typeof response !== 'object' ||
-                response === null ||
-                !('result' in response)
+                response === null
             ) {
                 throw new Error(
                     'Unexpected extension API response: ' +
@@ -468,6 +466,12 @@ async function sendApiMessage(page, action, params) {
             if ('error' in response && typeof response.error !== 'undefined') {
                 throw new Error(
                     'Extension API error: ' + JSON.stringify(response.error),
+                );
+            }
+            if (!('result' in response)) {
+                throw new Error(
+                    'Extension API response has no result: ' +
+                    JSON.stringify(response),
                 );
             }
             return response.result;
@@ -597,9 +601,23 @@ async function waitForSuccessfulImport(page, title, timeoutMilliseconds) {
 
         const now = Date.now();
         if (now - lastProgress >= importProgressMilliseconds) {
+            const progressInfo = (
+                await page.locator(
+                    '.dictionary-import-progress .progress-info',
+                ).first().textContent().catch(() => null)
+            )?.trim();
+            const progressStatus = (
+                await page.locator(
+                    '.dictionary-import-progress .progress-status',
+                ).first().textContent().catch(() => null)
+            )?.trim();
+            const progress = [progressInfo, progressStatus]
+                .filter((value) => value)
+                .join(' ');
             console.log(
                 '  still importing ' + JSON.stringify(title) +
-                ' (' + ((now - started) / 1000).toFixed(1) + ' s elapsed)',
+                ' (' + ((now - started) / 1000).toFixed(1) + ' s elapsed)' +
+                (progress ? ': ' + progress : ''),
             );
             lastProgress = now;
         }
@@ -686,6 +704,34 @@ async function configureProfile(page, expectedTitles, mainDictionary) {
             action: 'set',
             path: 'general.mainDictionary',
             value: mainDictionary,
+            scope: 'profile',
+            optionsContext: {current: true},
+        },
+        {
+            action: 'set',
+            path: 'general.resultOutputMode',
+            value: 'group',
+            scope: 'profile',
+            optionsContext: {current: true},
+        },
+        {
+            action: 'set',
+            path: 'general.maxResults',
+            value: 32,
+            scope: 'profile',
+            optionsContext: {current: true},
+        },
+        {
+            action: 'set',
+            path: 'scanning.alphanumeric',
+            value: true,
+            scope: 'profile',
+            optionsContext: {current: true},
+        },
+        {
+            action: 'set',
+            path: 'translation.searchResolution',
+            value: 'word',
             scope: 'profile',
             optionsContext: {current: true},
         },
@@ -812,6 +858,12 @@ async function prepareBase(
         readJson(paths.baseState) :
         null
     );
+    const stateWasReady = (
+        typeof state === 'object' &&
+        state !== null &&
+        'status' in state &&
+        state.status === 'ready'
+    );
 
     if (state !== null) {
         verifyStateIdentity(state, 'base', lexicalIdentity, null);
@@ -865,6 +917,14 @@ async function prepareBase(
         );
 
         if (typeof summary === 'undefined') {
+            if (stateWasReady) {
+                throw new Error(
+                    'Base state says the lexical dictionary is already imported, ' +
+                    'but Chromium cannot find it. Refusing to repeat the expensive ' +
+                    'import automatically. Inspect the isolated benchmark profile ' +
+                    'before using --reset.',
+                );
+            }
             const imported = await importDictionary(
                 page,
                 lexical,
@@ -897,7 +957,6 @@ async function prepareBase(
             dictionarySummary: summary,
             importSeconds,
             storage: await getStorageEstimate(page),
-            profileDirectoryBytes: getDirectorySize(paths.baseProfile),
             updatedAt: new Date().toISOString(),
         };
         writeJson(paths.baseState, state);
@@ -973,6 +1032,12 @@ async function prepareMode(
         existsSync(modePaths.state) ?
         readJson(modePaths.state) :
         null
+    );
+    const stateWasReady = (
+        typeof state === 'object' &&
+        state !== null &&
+        'status' in state &&
+        state.status === 'ready'
     );
 
     if (state !== null) {
@@ -1059,6 +1124,14 @@ async function prepareMode(
         );
 
         if (typeof morphologySummary === 'undefined') {
+            if (stateWasReady) {
+                throw new Error(
+                    'The ' + mode + ' state says the morphology dictionary is ' +
+                    'already imported, but Chromium cannot find it. Refusing to ' +
+                    'repeat the expensive import automatically. Inspect the ' +
+                    'isolated benchmark profile before using --reset.',
+                );
+            }
             const imported = await importDictionary(
                 page,
                 morphology,
@@ -1114,7 +1187,6 @@ async function prepareMode(
             baseStorage: baseState.storage,
             morphologyUsageDelta,
             transformModuleBytes: getIcelandicTransformBytes(paths.extension),
-            profileDirectoryBytes: getDirectorySize(modePaths.profile),
             updatedAt: new Date().toISOString(),
         };
         writeJson(modePaths.state, state);
