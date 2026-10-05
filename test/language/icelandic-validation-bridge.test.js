@@ -150,7 +150,11 @@ function createTranslator(validatorRules = defaultValidatorRules) {
 
     const translator = new Translator(
         /** @type {import('../../ext/js/dictionary/dictionary-database.js').DictionaryDatabase} */
-        (/** @type {unknown} */ ({findTermsBulk})),
+        (/** @type {unknown} */ ({
+            findTermsBulk,
+            findTermMetaBulk: async () => [],
+            getDictionaryInfo: async () => [],
+        })),
     );
     translator.prepare();
     return translator;
@@ -188,10 +192,11 @@ function createEnabledDictionaryMap() {
 /**
  * @param {Translator} translator
  * @param {string} text
+ * @param {import('translator').FindTermsMode} [mode='simple']
  * @returns {Promise<import('dictionary').TermDictionaryEntry[]>}
  */
-async function findTerms(translator, text) {
-    const {dictionaryEntries} = await translator.findTerms('simple', text, {
+async function findTerms(translator, text, mode = 'simple') {
+    const {dictionaryEntries} = await translator.findTerms(mode, text, {
         matchType: 'exact',
         deinflect: true,
         mainDictionary: validatorDictionary,
@@ -291,6 +296,35 @@ describe('Icelandic production validator bridge', () => {
         expect(getDefinitionDictionaries(inflectedEntries)).not.toContain(
             residualDictionary,
         );
+    });
+
+    test('grouped lookup presents POS-split lexical records as one headword', async () => {
+        const translator = createTranslator();
+
+        const directEntries = await findTerms(translator, 'verja', 'group');
+        expect(directEntries).toHaveLength(1);
+        expect(directEntries[0].headwords).toHaveLength(1);
+        expect(directEntries[0].headwords[0].term).toBe('verja');
+        expect(directEntries[0].headwords[0].wordClasses).toStrictEqual([
+            'noun',
+            'verb',
+        ]);
+        expect(
+            directEntries[0].definitions.map(({entries}) => entries),
+        ).toStrictEqual([
+            ['verja noun definition'],
+            ['verja verb definition'],
+        ]);
+
+        const inflectedEntries = await findTerms(translator, 'verstu', 'group');
+        expect(inflectedEntries).toHaveLength(1);
+        expect(inflectedEntries[0].headwords[0].term).toBe('verja');
+        expect(inflectedEntries[0].headwords[0].wordClasses).toStrictEqual(['verb']);
+        expect(
+            inflectedEntries[0].definitions.map(({entries}) => entries),
+        ).toStrictEqual([
+            ['verja verb definition'],
+        ]);
     });
 
     test('an explicit residual route remains available alongside algorithmic morphology', async () => {
